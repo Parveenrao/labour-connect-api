@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from loguru import logger
 from app.core.config import settings
@@ -7,20 +8,11 @@ from app.core.config import settings
 def setup_logging() -> None:
     """Configure application logging."""
 
-    # ----------------------------------------
-    # Remove default Loguru handler
-    # ------------------------------------------
     logger.remove()
 
-    # --------------------------------------
-    # Ensure logs directory exists
-    # --------------------------------------
-    LOG_DIR = Path("logs")
-    LOG_DIR.mkdir(exist_ok=True)
-
-    # -----------------------------------------
-    # Console Logging (for development)
-    # -------------------------------------------
+    # -----------------------------------
+    # Console Logging (works everywhere)
+    # -----------------------------------
     logger.add(
         sys.stdout,
         level=settings.LOG_LEVEL,
@@ -33,52 +25,34 @@ def setup_logging() -> None:
         ),
     )
 
-    # ---------------------------------------------
-    # Application Logs (INFO and above)
-    # Rotates daily and keeps limited history
-    # --------------------------------------------
-    logger.add(
-        LOG_DIR / "app_{time:YYYY-MM-DD}.log",
-        level="INFO",
-        rotation="00:00",
-        retention=f"{settings.LOG_RETENTION_DAYS} days",
-        compression="zip",
-        enqueue=True,
-        backtrace=True,
-        diagnose=False,
-        format=(
-            "{time:YYYY-MM-DD HH:mm:ss} | "
-            "{level: <8} | "
-            "{name}:{function}:{line} | "
-            "{message}"
-        ),
-    )
+    # -----------------------------------
+    # Skip file logging on Vercel
+    # -----------------------------------
+    if os.getenv("VERCEL") != "1":
 
-    # --------------------------------------------
-    # Error Logs (ERROR and above)
-    # Stored separately for easier debugging
-    # --------------------------------------------
-    logger.add(
-        LOG_DIR / "errors_{time:YYYY-MM-DD}.log",
-        level="ERROR",
-        rotation="00:00",
-        retention=f"{settings.LOG_ERROR_RETENTION_DAYS} days",
-        compression="zip",
-        enqueue=True,
-        backtrace=True,
-        diagnose=False,
-        format=(
-            "{time:YYYY-MM-DD HH:mm:ss} | "
-            "{level: <8} | "
-            "{name}:{function}:{line} | "
-            "{message}"
-        ),
-    )
+        LOG_DIR = Path("logs")
+        LOG_DIR.mkdir(exist_ok=True)
+
+        logger.add(
+            LOG_DIR / "app_{time:YYYY-MM-DD}.log",
+            level="INFO",
+            rotation="00:00",
+            retention=f"{settings.LOG_RETENTION_DAYS} days",
+            compression="zip",
+            enqueue=True,
+        )
+
+        logger.add(
+            LOG_DIR / "errors_{time:YYYY-MM-DD}.log",
+            level="ERROR",
+            rotation="00:00",
+            retention=f"{settings.LOG_ERROR_RETENTION_DAYS} days",
+            compression="zip",
+            enqueue=True,
+        )
 
     logger.info(
-        "Logging initialized | ENV=%s | LEVEL=%s | DIR=%s",
+        "Logging initialized | ENV=%s | LEVEL=%s",
         settings.APP_ENV,
         settings.LOG_LEVEL,
-        LOG_DIR,
     )
-
